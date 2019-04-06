@@ -1,74 +1,73 @@
-﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace WebApi.Controllers
+namespace IMDbWebApi.Controllers
 {
-    [Route("api")]
+    [Route("imdb-reconcile/api")]
     [ApiController]
     public class ApiController : ControllerBase
     {
-        string configuration = @"{""name"":""IMDb (en)"", ""view"": {""url"": ""https://www.imdb.com/title/{{id}}""}, ""defaultTypes"": [{""id"": ""/imdb/title"", ""name"": ""Title""}]}";
-
+        JObject configuration =
+            new JObject(
+                new JProperty("name", "IMDb (en)"),
+                new JProperty("view",
+                    new JObject(
+                        new JProperty("url", "https://www.imdb.com/title/{{id}}")
+                    )),
+                new JProperty("defaultTypes",
+                    new JArray(
+                        new JObject(
+                            new JProperty("id", "/imdb/title"),
+                            new JProperty("name", "Title")))));
         // GET api
         [HttpGet]
         public ActionResult Get()
         {
-            var queryString = Request.Query;
-            if (queryString["queries"].Any())
-            {
-                var result = "{";
-                JObject qList = JObject.Parse(queryString["queries"]);
-                foreach (JProperty property in qList.Properties())
-                {
-                    Console.WriteLine("query: " + qList[property.Name]["query"]);
-                    Console.WriteLine("type: " + qList[property.Name]["type"]);
-                    result += property.Name + @": {""result"": [{""score"": 100.0, ""type"": [{""name"": ""Title"", ""id"": ""/imdb/title""}], ""id"": " + qList[property.Name]["query"] + @", ""name"" : " + qList[property.Name]["query"] + @", ""match"": true}]}";
-                }
-                result += "}";
-                if (queryString["callback"].Any())
-                {
-                    var send = Content(queryString["callback"] + '(' + JsonConvert.SerializeObject(result) + ')', "text/javascript");
-                    return send;
-                }
-                else
-                    return Content(JsonConvert.SerializeObject(result), "application/json");
-            }
-            else if (queryString["callback"].Any())
-                return Content(queryString["callback"] + '(' + configuration + ')', "text/javascript");
-            else
-                return Content(configuration, "application/json");
+            return ParseKeys(Request.Query);
+
         }
+
         // POST api
         [HttpPost]
         public ActionResult Post()
         {
-            var queryString = Request.Form;
-            if (queryString["queries"].Any())
+            return ParseKeys(Request.Form);
+        }
+
+        //reconcile service
+        private ActionResult ParseKeys(IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> queryString)
+        {
+            if (queryString.Any(i => i.Key == "queries"))
             {
-                var result =@"{";
-                JObject qList = JObject.Parse(queryString["queries"]);
-                foreach (JProperty property in qList.Properties())
-                {
-                    Console.WriteLine("query: " + qList[property.Name]["query"]);
-                    Console.WriteLine("type: " + qList[property.Name]["type"]);
-                    result += property.Name + @": {""result"": [{""score"": 100.0, ""type"": [{""name"": ""Title"", ""id"": ""/imdb/title""}], ""id"": " + qList[property.Name]["query"] + @", ""name"": " + qList[property.Name]["query"] + @", ""match"": true}]},";
-                }
-                result += @"}";
-                if (queryString["callback"].Any())
-                    return Content(queryString["callback"] + '(' + result + ')', "text/javascript");
+                JObject wikidataItems = JObject.Parse(queryString.First(i => i.Key == "queries").Value);
+                JObject result =
+                        new JObject(
+                        from wikidataItem in wikidataItems.Properties()
+                        select new JProperty(wikidataItem.Name,
+                                new JObject(
+                                    new JProperty("result",
+                                        new JArray(
+                                            new JObject(
+                                                new JProperty("type",
+                                                    new JArray(
+                                                        new JObject(
+                                                            new JProperty("id", "/imdb/title"),
+                                                            new JProperty("name", "Title")))),
+                                                new JProperty("id", wikidataItems[wikidataItem.Name]["query"]),
+                                                new JProperty("name", wikidataItems[wikidataItem.Name]["query"]),
+                                                new JProperty("score", 100.0),
+                                                new JProperty("match", true)))))));
+                if (queryString.Any(i => i.Key == "callback"))
+                    return Content(queryString.First(i => i.Key == "callback").Value + '(' + result + ')', "text/javascript");
                 else
-                    return Content(result, "application/json");
+                    return Content(result.ToString(), "application/json");
             }
-            else if (queryString["callback"].Any())
-                return Content(queryString["callback"] + '(' + configuration + ')', "text/javascript");
+            else if (queryString.Any(i => i.Key == "callback"))
+                return Content(queryString.First(i => i.Key == "callback").Value + '(' + configuration + ')', "text/javascript");
             else
-                return Content(configuration, "application/json");
+                return Content(configuration.ToString(), "application/json");
         }
     }
 }
