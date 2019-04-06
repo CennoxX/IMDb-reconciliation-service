@@ -20,17 +20,16 @@ Starting the server
 
 To start the service:
 ```
-dotnet run WebApi
+dotnet run IMDbWebApi
 ```
 
 To use in OpenRefine:
 * Select a column containing IMDb-IDs > Reconcile > Start Reconciling...
-* Add the following reconciliation service URL: http://localhost:5000/api
+* Add the following reconciliation service URL: http://localhost:5000/imdb-reconcile/api
 * Click "Start Reconciling"
 
 Inspiration
 -----------
-This was adapted from the following: https://github.com/dergachev/redmine-reconcile, https://github.com/mikejs/reconcile-demo
+This was adapted from https://github.com/dergachev/redmine-reconcile
 
 For more info, see https://github.com/OpenRefine/OpenRefine/wiki/Reconciliation-Service-API.
-
