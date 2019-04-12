@@ -26,7 +26,6 @@ namespace IMDbWebApi.Controllers
         public ActionResult Get()
         {
             return ParseKeys(Request.Query);
-
         }
 
         // POST api
