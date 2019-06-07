@@ -1,4 +1,4 @@
-# .NET Core reconcile
+# .NET Core reconciliation service
 OpenRefine reconciliation service
 
 .NET Core implementation of an OpenRefine reconciliation service that just returns the given name/id with a base url prepended, so that reconciled IMDb-IDs are clickable links.
