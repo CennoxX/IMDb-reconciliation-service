@@ -8,7 +8,7 @@ At the moment all it does, is blindly verifying any IMDb-ID to itself, and provi
     metadata = {
       "name": "IMDb (en)",
       "defaultTypes": [{"id": "/imdb/Title", "name": "Title"}],
-      "view": { "url" : "https://www.imdb.org/title/{{id}}" } 
+      "view": { "url" : "https://www.imdb.com/title/{{id}}" } 
     }
 
 Requirements
@@ -24,7 +24,7 @@ dotnet run IMDbWebApi
 ```
 
 To use in OpenRefine:
-* Select a column containing IMDb-IDs > Reconcile > Start Reconciling...
+* Select a column containing IMDb-IDs > Reconcile > Start Reconciling…
 * Add the following reconciliation service URL: http://localhost:5000/imdb-reconcile/api
 * Click "Start Reconciling"
 
