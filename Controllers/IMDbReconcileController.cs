@@ -3,24 +3,27 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 
-namespace IMDbWebApi.Controllers
+namespace IMDbReconcile.Controllers
 {
 	[ApiController]
-	public class IMDbWebApiController : ControllerBase
+	[Route("[controller]/[action]")]
+	public class IMDbReconcileController : ControllerBase
 	{
 		//configuration
-		private readonly JObject configuration = JObject.Parse(
-			@"{
+		private string GetConfiguration(HttpRequest request)
+		{return JObject.Parse(
+@"{
 				name: 'IMDb (en)',
 				view: {
-					url: 'https://www.imdb.com/{{id}}'
+					url: 'https://www.imdb.com/Name?{{id}}'
 				},
 				preview: {
 					height: 100,
-					url: 'http://localhost:5000/imdb-reconcile/preview?id={{id}}',
+					url: '" + request.Scheme + @"://" + request.Host + @"/" + request.Path.Value.Split("/")[1] + @"/preview?id={{id}}',
 					width: 400
 				},
 				defaultTypes: [
@@ -34,27 +37,20 @@ namespace IMDbWebApi.Controllers
 					}
 				],
 				identifierSpace: 'http://www.imdb.com/',
-				schemaSpace: 'http://www.imdb.com/'
-			}");
-		private JObject ldjson;
-
-		//reconcile service
-		[HttpGet]
-		[Route("imdb-reconcile/api")]
-		public ActionResult GetApi()
-		{
-			return ParseApi(Request.Query);
+				schemaSpace: 'http://www.imdb.com/',
+				extend: {
+					property_settings: [],
+					propose_properties: {
+						service_path: '/proposeproperties',
+						service_url: '" + request.Scheme + @"://" + request.Host + @"/" + request.Path.Value.Split("/")[1] + @"'
+					}
+				}
+			}").ToString();
 		}
 
-		[HttpPost]
-		[Route("imdb-reconcile/api")]
-		public ActionResult PostApi()
+		public ActionResult Api()
 		{
-			return ParseApi(Request.Form);
-		}
-
-		private ActionResult ParseApi(IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> queryString)
-		{
+			var queryString = GetQueryString();
 			if (queryString.Any(i => i.Key == "queries"))
 			{
 				JObject wikidataItems = JObject.Parse(queryString.First(i => i.Key == "queries").Value);
@@ -78,30 +74,21 @@ namespace IMDbWebApi.Controllers
 				else
 					return Content(result.ToString(), "application/json");
 			}
+			if (queryString.Any(i => i.Key == "extend"))
+			{
+				JObject wikidataItems = JObject.Parse(queryString.First(i => i.Key == "extend").Value);
+				var result = JObject.Parse(@"{rows:{tt0511646:{actor:[{name:'Omar Gooding',id:'nm0328954'}]}},meta:[{id:'actor',name:'Actor',type:{id:'name/',name:'Name'}}]}");
+				return Content(result.ToString(), "application/json");
+			}
 			else if (queryString.Any(i => i.Key == "callback"))
-				return Content(queryString.First(i => i.Key == "callback").Value + '(' + configuration + ')', "text/javascript");
+				return Content(queryString.First(i => i.Key == "callback").Value + '(' + GetConfiguration(Request) + ')', "text/javascript");
 			else
-				return Content(configuration.ToString(), "application/json");
+				return Content(GetConfiguration(Request), "application/json");
 		}
 
-		//preview service
-
-		[HttpPost]
-		[Route("imdb-reconcile/preview")]
-		public ActionResult PostPreview()
+		public ActionResult Preview()
 		{
-			return ParsePreview(Request.Form);
-		}
-
-		[HttpGet]
-		[Route("imdb-reconcile/preview")]
-		public ActionResult GetPreview()
-		{
-			return ParsePreview(Request.Query);
-		}
-
-		private ActionResult ParsePreview(IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> queryString)
-		{
+			var queryString = GetQueryString();
 			try
 			{
 				var id = queryString.FirstOrDefault(i => i.Key == "id").Value.ToString();
@@ -130,17 +117,46 @@ namespace IMDbWebApi.Controllers
 				return NotFound();
 			}
 		}
+
+		public ActionResult ProposeProperties()
+		{
+			var queryString = GetQueryString();
+			var type = queryString.FirstOrDefault(i => i.Key == "type").Value.ToString();
+			string result;
+			if (type == "name/")
+			{
+				result = JObject.Parse(@"{properties: [{id: 'name',name: 'Name'},{id: 'image',name: 'Image'},{id: 'jobTitle',name: 'Name'},{id: 'jobTitle',name: 'Jobtitle'},{id: 'description',name: 'Description'},{id: 'birthDate',name: 'Birthdate'}],type: 'name/',limit: 6}").ToString();
+			}
+			else if (type == "title/")
+			{
+				result = JObject.Parse(@"{properties: [{id: 'actor',name: 'Actor'},{id: 'director',name: 'Director'},{id: 'creator',name: 'Creator'},{id: 'description',name: 'Description'},{id: 'datePublished',name: 'Date published'},{id: 'timeRequired',name: 'Time required'}],type: 'title/',limit: 6}").ToString();
+			}
+			else
+			{
+				throw new Exception();
+			}
+			if (queryString.Any(i => i.Key == "callback"))
+				return Content(queryString.First(i => i.Key == "callback").Value + '(' + result + ')', "text/javascript");
+			else
+				return Content(result.ToString(), "application/json");
+		}
+
 		#region utils
+		private IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> GetQueryString()
+		{
+			if (Request.Method == "GET")
+				return Request.Query;
+			else if (Request.Method == "POST")
+				return Request.Form;
+			else
+				throw new Exception();
+		}
 		private JObject LoadJSON(string id)
 		{
-			if (ldjson == null || ldjson["url"].ToString() != $"/{FormatIMDbId(id)}/")
-			{
-				var web = new HtmlWeb();
-				var doc = web.Load("https://www.imdb.com/" + FormatIMDbId(id));
-				var match = doc.DocumentNode.SelectSingleNode(@"//script[@type=""application/ld+json""]");
-				ldjson = JObject.Parse(match.InnerText);
-			}
-			return ldjson;
+			var web = new HtmlWeb();
+			var doc = web.Load("https://www.imdb.com/" + FormatIMDbId(id));
+			var match = doc.DocumentNode.SelectSingleNode(@"//script[@type=""application/ld+json""]");
+			return JObject.Parse(match.InnerText);
 		}
 		private string FormatIMDbId(string id)
 		{
@@ -155,14 +171,14 @@ namespace IMDbWebApi.Controllers
 
 		private JArray GetTypeArray(string id)
 		{
-			if (FormatIMDbId(id).StartsWith("tt"))
+			if (FormatIMDbId(id).StartsWith("title"))
 			{
 				return new JArray(
 					new JObject(
 						new JProperty("id", "title/"),
 						new JProperty("name", "Title")));
 			}
-			else if (FormatIMDbId(id).StartsWith("nm"))
+			else if (FormatIMDbId(id).StartsWith("name"))
 			{
 				return new JArray(
 					new JObject(
@@ -174,8 +190,6 @@ namespace IMDbWebApi.Controllers
 				throw new Exception("Unknown Type");
 			}
 		}
-
 		#endregion utils
-
 	}
 }
