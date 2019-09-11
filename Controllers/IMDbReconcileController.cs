@@ -15,8 +15,9 @@ namespace IMDbReconcile.Controllers
 	{
 		//configuration
 		private string GetConfiguration(HttpRequest request)
-		{return JObject.Parse(
-@"{
+		{
+			return JObject.Parse(
+			@"{
 				name: 'IMDb (en)',
 				view: {
 					url: 'https://www.imdb.com/Name?{{id}}'
