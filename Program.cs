@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 
-namespace IMDbWebApi
+namespace IMDbReconcile
 {
     public class Program
     {
