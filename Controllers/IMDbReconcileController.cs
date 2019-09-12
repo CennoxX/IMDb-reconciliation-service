@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
@@ -13,80 +14,98 @@ namespace IMDbReconcile.Controllers
 	[Route("[controller]/[action]")]
 	public class IMDbReconcileController : ControllerBase
 	{
-		//configuration
-		private string GetConfiguration(HttpRequest request)
-		{
-			return JObject.Parse(
-			@"{
-				name: 'IMDb (en)',
-				view: {
-					url: 'https://www.imdb.com/Name?{{id}}'
-				},
-				preview: {
-					height: 100,
-					url: '" + request.Scheme + @"://" + request.Host + @"/" + request.Path.Value.Split("/")[1] + @"/preview?id={{id}}',
-					width: 400
-				},
-				defaultTypes: [
-					{
-						id: 'title/',
-						name: 'Title'
-					},
-					{
-						id: 'name/',
-						name: 'Name'
-					}
-				],
-				identifierSpace: 'http://www.imdb.com/',
-				schemaSpace: 'http://www.imdb.com/',
-				extend: {
-					property_settings: [],
-					propose_properties: {
-						service_path: '/proposeproperties',
-						service_url: '" + request.Scheme + @"://" + request.Host + @"/" + request.Path.Value.Split("/")[1] + @"'
-					}
-				}
-			}").ToString();
-		}
+		/// <summary>
+		/// The temporary stored JSON-LD
+		/// </summary>
+		private JObject ldJson;
 
+		/// <summary>
+		/// The standard API, including the Reconciliation Service API, the Data Extension API and the Service Metadata.
+		/// </summary>
+		/// <returns>Returns the JSON-Result or a callback of it.</returns>
 		public ActionResult Api()
 		{
+			//Reconciliation Service API
+			JObject result;
 			var queryString = GetQueryString();
 			if (queryString.Any(i => i.Key == "queries"))
 			{
-				JObject wikidataItems = JObject.Parse(queryString.First(i => i.Key == "queries").Value);
-				JObject result =
+				JObject queryItems = JObject.Parse(queryString.First(i => i.Key == "queries").Value);
+				result =
 						new JObject(
-						from wikidataItem in wikidataItems.Properties()
-						select new JProperty(wikidataItem.Name,
+						from queryItem in queryItems.Properties()
+						select new JProperty(queryItem.Name,
 								new JObject(
 									new JProperty("result",
 										new JArray(
 											new JObject(
 												new JProperty("type",
-													GetTypeArray(wikidataItems[wikidataItem.Name]["query"].ToString())
-													),
-												new JProperty("id", wikidataItems[wikidataItem.Name]["query"].ToString()),
-												new JProperty("name", GetTitle(wikidataItems[wikidataItem.Name]["query"].ToString())),
+													new JArray(
+														GetTypeJObject(queryItems[queryItem.Name]["query"].ToString())
+													)),
+												new JProperty("id", queryItems[queryItem.Name]["query"].ToString()),
+												new JProperty("name", GetProperty(queryItems[queryItem.Name]["query"].ToString(), "name")),
 												new JProperty("score", 100.0),
 												new JProperty("match", true)))))));
-				if (queryString.Any(i => i.Key == "callback"))
-					return Content(queryString.First(i => i.Key == "callback").Value + '(' + result + ')', "text/javascript");
-				else
-					return Content(result.ToString(), "application/json");
 			}
-			if (queryString.Any(i => i.Key == "extend"))
+			//Data Extension API
+			else if (queryString.Any(i => i.Key == "extend"))
 			{
-				JObject wikidataItems = JObject.Parse(queryString.First(i => i.Key == "extend").Value);
-				var result = JObject.Parse(@"{rows:{tt0511646:{actor:[{name:'Omar Gooding',id:'nm0328954'}]}},meta:[{id:'actor',name:'Actor',type:{id:'name/',name:'Name'}}]}");
-				return Content(result.ToString(), "application/json");
+				JObject queryItems = JObject.Parse(queryString.First(i => i.Key == "extend").Value);
+				var ids = queryItems["ids"];
+				var properties = queryItems["properties"];
+				result =
+					new JObject(
+						new JProperty("rows",
+							new JObject(
+								from id in ids
+								select new JProperty(id.ToString(),
+									new JObject(
+										from property in properties
+										select new JProperty(property["id"].ToString(),
+											GetContentJArray(id.ToString(), property["id"].ToString())))))),
+					new JProperty("meta",
+					new JArray(
+							from property in properties
+							select new JObject(
+							new JProperty("id", property["id"].ToString()),
+							new JProperty("name", CultureInfo.CurrentCulture.TextInfo.ToTitleCase(property["id"].ToString()))))));
 			}
-			else if (queryString.Any(i => i.Key == "callback"))
-				return Content(queryString.First(i => i.Key == "callback").Value + '(' + GetConfiguration(Request) + ')', "text/javascript");
+			//Service Metadata
 			else
-				return Content(GetConfiguration(Request), "application/json");
-		}
+			{
+				result = GetConfiguration(Request);
+			}
 
+			return CallbackReturn(queryString, result);
+		}
+		/// <summary>
+		/// The Property Proposal API, that proposes possible properties based on the type
+		/// </summary>
+		/// <returns>Returns the possible properties as JSON or a callback of it.</returns>
+		public ActionResult ProposeProperties()
+		{
+			var queryString = GetQueryString();
+			var type = queryString.FirstOrDefault(i => i.Key == "type").Value.ToString();
+			JObject result;
+			if (type == "Person")
+			{
+				result = JObject.Parse(@"{properties: [{id: 'image',name: 'Image'},{id: 'jobTitle',name: 'Jobtitle'},{id: 'description',name: 'Description'},{id: 'birthDate',name: 'Birthdate'},{id: 'deathDate',name: 'Deathdate'}],type: 'Person'}");
+			}
+			else if (type == "TVEpisode" || type == "Movie" || type == "TVSeries" || type == "CreativeWork")
+			{
+				result = JObject.Parse(@"{properties: [{id: 'actor',name: 'Actor'},{id: 'director',name: 'Director'},{id: 'creator',name: 'Creator'},{id: 'description',name: 'Description'},{id: 'datePublished',name: 'Date published'},{id: 'timeRequired',name: 'Duration'},{id: 'keywords',name: 'Keywords'},{id: 'genre',name: 'Genre'},{id: 'contentRating',name: 'Content rating'},{id: 'image',name: 'Image'}],type: '" + type + @"'}");
+			}
+			else
+			{
+				result = result = JObject.Parse(@"{properties: []}");
+			}
+			return CallbackReturn(queryString, result);
+		}
+		/// <summary>
+		/// The Preview API, that loads a preview of the forwarded id.
+		/// </summary>
+		/// <returns>Returns a HTML-preview of the item.</returns>
 		public ActionResult Preview()
 		{
 			var queryString = GetQueryString();
@@ -118,24 +137,21 @@ namespace IMDbReconcile.Controllers
 				return NotFound();
 			}
 		}
-
-		public ActionResult ProposeProperties()
+		public ActionResult SuggestProperty()
 		{
 			var queryString = GetQueryString();
-			var type = queryString.FirstOrDefault(i => i.Key == "type").Value.ToString();
-			string result;
-			if (type == "name/")
-			{
-				result = JObject.Parse(@"{properties: [{id: 'name',name: 'Name'},{id: 'image',name: 'Image'},{id: 'jobTitle',name: 'Name'},{id: 'jobTitle',name: 'Jobtitle'},{id: 'description',name: 'Description'},{id: 'birthDate',name: 'Birthdate'}],type: 'name/',limit: 6}").ToString();
-			}
-			else if (type == "title/")
-			{
-				result = JObject.Parse(@"{properties: [{id: 'actor',name: 'Actor'},{id: 'director',name: 'Director'},{id: 'creator',name: 'Creator'},{id: 'description',name: 'Description'},{id: 'datePublished',name: 'Date published'},{id: 'timeRequired',name: 'Time required'}],type: 'title/',limit: 6}").ToString();
-			}
-			else
-			{
-				throw new Exception();
-			}
+			var result = JObject.Parse(@"{result:[{id: 'actor', name: 'Actor'},{id: 'birthDate', name: 'Birthdate'},{id: 'contentRating', name: 'Content rating'},{id: 'creator', name: 'Creator'},{id: 'datePublished', name: 'Date published'},{id: 'deathDate', name: 'Deathdate'},{id: 'description', name: 'Description'},{id: 'director', name: 'Director'},{id: 'genre', name: 'Genre'},{id: 'image', name: 'Image'},{id: 'jobTitle', name: 'Jobtitle'},{id: 'keywords', name: 'Keywords'},{id: 'timeRequired', name: 'Time required'}]}");
+			return CallbackReturn(queryString, result);
+		}
+
+		/// <summary>
+		/// Returns with or without a callback based on the querystring.
+		/// </summary>
+		/// <param name="queryString">String of the query to determine if a callback is needed.</param>
+		/// <param name="result">The JSON-object to return as ContentResult.</param>
+		/// <returns>Returns the JSON-object with or withour callback.</returns>
+		private ContentResult CallbackReturn(IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> queryString, JObject result)
+		{
 			if (queryString.Any(i => i.Key == "callback"))
 				return Content(queryString.First(i => i.Key == "callback").Value + '(' + result + ')', "text/javascript");
 			else
@@ -143,6 +159,70 @@ namespace IMDbReconcile.Controllers
 		}
 
 		#region utils
+
+		/// <summary>
+		/// Provides the configuration for the Reconciliation Service API.
+		/// </summary>
+		/// <param name="request">The HTTP-request to get necessary informations about the host.</param>
+		/// <returns>Returns an adapted configuration as JSON-string.</returns>
+		private JObject GetConfiguration(HttpRequest request)
+		{
+			var service_url = request.Scheme + @"://" + request.Host + @"/" + request.Path.Value.Split("/")[1];
+			return JObject.Parse(
+			@"{
+				name: 'IMDb (en)',
+				view: {
+					url: 'https://www.imdb.com/Name?{{id}}'
+				},
+				preview: {
+					height: 100,
+					url: '" + service_url + @"/preview?id={{id}}',
+					width: 400
+				},
+				defaultTypes: [
+					{
+						id: 'Person',
+						name: 'Person'
+					},
+					{
+						id: 'Movie',
+						name: 'Movie'
+					},
+					{
+						id: 'TVSeries',
+						name: 'TVSeries'
+					},
+					{
+						id: 'TVEpisode',
+						name: 'TVEpisode'
+					},
+					{
+						id: 'CreativeWork',
+						name: 'CreativeWork'
+					}
+				],
+				identifierSpace: 'http://www.imdb.com/',
+				schemaSpace: 'http://www.imdb.com/',
+				suggest: {
+					property: {
+						service_path: '/suggestproperty',
+						service_url: '" + service_url + @"'
+					}
+				},
+				extend: {
+					property_settings: [],
+					propose_properties: {
+						service_path: '/proposeproperties',
+						service_url: '" + service_url + @"'
+					}
+				}
+			}");
+		}
+
+		/// <summary>
+		/// Returns the data of the request based on the request-method
+		/// </summary>
+		/// <returns>Returns the data of the request</returns>
 		private IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> GetQueryString()
 		{
 			if (Request.Method == "GET")
@@ -152,45 +232,119 @@ namespace IMDbReconcile.Controllers
 			else
 				throw new Exception();
 		}
+
+		/// <summary>
+		/// Loads the JSON-LD from the specific IMDb-Page or if it's already loaded uses the saved one.
+		/// </summary>
+		/// <param name="id">The IMDb-ID of the IMDb-Page</param>
+		/// <returns>Returns a JSON-object with the JSON-LD</returns>
 		private JObject LoadJSON(string id)
 		{
-			var web = new HtmlWeb();
-			var doc = web.Load("https://www.imdb.com/" + FormatIMDbId(id));
-			var match = doc.DocumentNode.SelectSingleNode(@"//script[@type=""application/ld+json""]");
-			return JObject.Parse(match.InnerText);
+			if (ldJson == null || ldJson["url"].ToString().Trim('/') != FormatIMDbId(id))
+			{
+				var web = new HtmlWeb();
+				var doc = web.Load("https://www.imdb.com/" + FormatIMDbId(id));
+				var match = doc.DocumentNode.SelectSingleNode(@"//script[@type=""application/ld+json""]");
+				ldJson = JObject.Parse(match.InnerText);
+			}
+			return ldJson;
 		}
+
+		/// <summary>
+		/// Gets the specified property of a JSON-LD, that is loaded.
+		/// </summary>
+		/// <param name="id">The ID of the JSON-LD to load.</param>
+		/// <param name="name">The name of the property to load.</param>
+		/// <returns>Returns the value of the specified property</returns>
+		private string GetProperty(string id, string name)
+		{
+			var ld = LoadJSON(id);
+			if (ld[name] != null)
+			{
+				return ld[name].ToString();
+			}
+			else
+			{
+				return "";
+			}
+		}
+
+		/// <summary>
+		/// Formats the IMDb-ID for the use in an URL.
+		/// </summary>
+		/// <param name="id">The unformatted IMDb-ID</param>
+		/// <returns>Returns the formatted IMDb-ID</returns>
 		private string FormatIMDbId(string id)
 		{
 			id = id.Trim('/');
 			return (id.StartsWith("tt") ? "title/" : "") + (id.StartsWith("nm") ? "name/" : "") + id;
 		}
 
-		private string GetTitle(string id)
+		/// <summary>
+		/// Gets the type of an item with a specific id.
+		/// </summary>
+		/// <param name="id">The id of the item to load.</param>
+		/// <returns>Returns a JSON-object with the type.</returns>
+		private JObject GetTypeJObject(string id)
 		{
-			return LoadJSON(id)["name"].ToString();
+			var ld = LoadJSON(id);
+			return new JObject(
+				new JProperty("id", ld["@type"].ToString()),
+				new JProperty("name", ld["@type"].ToString()
+				));
 		}
 
-		private JArray GetTypeArray(string id)
+		/// <summary>
+		/// Gets the content of the properties of a specific item.
+		/// </summary>
+		/// <param name="id">The item from which the properties are asked.</param>
+		/// <param name="name">The name of the property which is asked for.</param>
+		/// <returns>Returns an JSON-array with the content of the properties.</returns>
+		private JArray GetContentJArray(string id, string name)
 		{
-			if (FormatIMDbId(id).StartsWith("title"))
+			JArray result = null;
+			//IMDb Person property with @type Person, url, name or @type Organization, url
+			if (name == "actor" || name == "creator" || name == "director" || name == "writer")
 			{
-				return new JArray(
-					new JObject(
-						new JProperty("id", "title/"),
-						new JProperty("name", "Title")));
+				result = new JArray(
+						from prop in JArray.Parse(GetProperty(id, name)).Where(i => i["@type"].ToString() != "Organization")
+						select new JObject(
+									new JProperty("name", prop["name"].ToString()),
+									new JProperty("id", FormatIMDbId(prop["url"].ToString()).Split("/")[1])));
 			}
-			else if (FormatIMDbId(id).StartsWith("name"))
+			//string property
+			else if (name == "description" || name == "timeRequired" || name == "contentRating" || name == "image")
 			{
-				return new JArray(
-					new JObject(
-						new JProperty("id", "name/"),
-						new JProperty("name", "Name")));
+				result = new JArray(
+							new JObject(
+								new JProperty("str", GetProperty(id, name))));
 			}
-			else
+			//date property
+			else if (name == "datePublished" || name == "birthDate" || name == "deathDate")
 			{
-				throw new Exception("Unknown Type");
+				result = new JArray(
+							new JObject(
+								new JProperty("date", GetProperty(id, name) + "T00:00:00+00:00")));
 			}
+			//string property seperated by comma
+			else if (name == "keywords")
+			{
+				result = new JArray(
+						from prop in GetProperty(id, name).Split(",")
+						select new JObject(
+									new JProperty("str", prop)));
+			}
+			//string array property
+			else if (name == "genre" || name == "jobTitle")
+			{
+				result = new JArray(
+						from prop in JArray.Parse(GetProperty(id, name))
+						select new JObject(
+									new JProperty("str", prop.ToString())));
+			}
+			return result;
 		}
 		#endregion utils
+
 	}
 }
