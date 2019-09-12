@@ -1,15 +1,9 @@
 # .NET Core reconciliation service
-OpenRefine reconciliation service
+OpenRefine reconciliation service using the JSON-LD data of IMDb
 
-.NET Core implementation of an OpenRefine reconciliation service that just returns the given name/id with a base url prepended, so that reconciled IMDb-IDs are clickable links.
+.NET Core implementation of an OpenRefine reconciliation service that takes IMDb-IDs and blindly verifies them to themself. The Reconciliation Service API provides the Service Metadata, returns the title or name and the url, so that reconciled IMDb-IDs are clickable links. Further it is possible to extend the data by using the JSON-LD data of IMDb with the Data Extension API. The Preview API, Property Proposal API and Suggest API (for properties) are also implemented.
 
-At the moment all it does, is blindly verifying any IMDb-ID to itself, and provide the following metadata:
-
-    metadata = {
-      "name": "IMDb (en)",
-      "defaultTypes": [{"id": "/imdb/Title", "name": "Title"}],
-      "view": { "url" : "https://www.imdb.com/title/{{id}}" } 
-    }
+The service is easy adaptable for other websites using JSON-LD.
 
 Requirements
 ------------
@@ -17,7 +11,6 @@ Requires [.NET Core 2.2 SDK](https://www.microsoft.com/net/download/all)
 
 Starting the server
 -------------------
-
 To start the service:
 ```
 dotnet run IMDbWebApi
@@ -28,8 +21,10 @@ To use in OpenRefine:
 * Add the following reconciliation service URL: http://localhost:5000/imdb-reconcile/api
 * Click "Start Reconciling"
 
-Inspiration
------------
-This was adapted from https://github.com/dergachev/redmine-reconcile
+To extend data:
+* Select a column containing IMDb-IDs > Edit Columns > Add columns from reconciled values…
+* Choose one or multiple of "Suggested Properties"
+* Click on "OK"
 
+-----------
 For more info, see https://github.com/OpenRefine/OpenRefine/wiki/Reconciliation-Service-API.
