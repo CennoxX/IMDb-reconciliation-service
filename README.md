@@ -13,12 +13,12 @@ Starting the server
 -------------------
 To start the service:
 ```
-dotnet run IMDbWebApi
+dotnet run IMDbReconcile
 ```
 
 To use in OpenRefine:
 * Select a column containing IMDb-IDs > Reconcile > Start Reconciling…
-* Add the following reconciliation service URL: http://localhost:5000/imdb-reconcile/api
+* Add the following reconciliation service URL: http://localhost:5000/imdbreconcile/api
 * Click "Start Reconciling"
 
 To extend data:
