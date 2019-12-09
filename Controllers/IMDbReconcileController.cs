@@ -15,7 +15,7 @@ namespace IMDbReconcile.Controllers
 	public class IMDbReconcileController : ControllerBase
 	{
 		/// <summary>
-		/// The temporary stored JSON-LD
+		/// The temporary stored JSON-LD.
 		/// </summary>
 		private JObject ldJson;
 
@@ -80,7 +80,7 @@ namespace IMDbReconcile.Controllers
 			return CallbackReturn(queryString, result);
 		}
 		/// <summary>
-		/// The Property Proposal API, that proposes possible properties based on the type
+		/// The Property Proposal API, that proposes possible properties based on the type.
 		/// </summary>
 		/// <returns>Returns the possible properties as JSON or a callback of it.</returns>
 		public ActionResult ProposeProperties()
@@ -98,7 +98,7 @@ namespace IMDbReconcile.Controllers
 			}
 			else
 			{
-				result = result = JObject.Parse(@"{properties: []}");
+				result = JObject.Parse(@"{properties: []}");
 			}
 			return CallbackReturn(queryString, result);
 		}
@@ -220,9 +220,9 @@ namespace IMDbReconcile.Controllers
 		}
 
 		/// <summary>
-		/// Returns the data of the request based on the request-method
+		/// Returns the data of the request based on the request-method.
 		/// </summary>
-		/// <returns>Returns the data of the request</returns>
+		/// <returns>Returns the data of the request.</returns>
 		private IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> GetQueryString()
 		{
 			if (Request.Method == "GET")
@@ -236,8 +236,8 @@ namespace IMDbReconcile.Controllers
 		/// <summary>
 		/// Loads the JSON-LD from the specific IMDb-Page or if it's already loaded uses the saved one.
 		/// </summary>
-		/// <param name="id">The IMDb-ID of the IMDb-Page</param>
-		/// <returns>Returns a JSON-object with the JSON-LD</returns>
+		/// <param name="id">The IMDb-ID of the IMDb-Page.</param>
+		/// <returns>Returns a JSON-object with the JSON-LD.</returns>
 		private JObject LoadJSON(string id)
 		{
 			if (ldJson == null || ldJson["url"].ToString().Trim('/') != FormatIMDbId(id))
@@ -272,8 +272,8 @@ namespace IMDbReconcile.Controllers
 		/// <summary>
 		/// Formats the IMDb-ID for the use in an URL.
 		/// </summary>
-		/// <param name="id">The unformatted IMDb-ID</param>
-		/// <returns>Returns the formatted IMDb-ID</returns>
+		/// <param name="id">The unformatted IMDb-ID.</param>
+		/// <returns>Returns the formatted IMDb-ID.</returns>
 		private string FormatIMDbId(string id)
 		{
 			id = id.Trim('/');
@@ -309,22 +309,22 @@ namespace IMDbReconcile.Controllers
 				result = new JArray(
 						from prop in JArray.Parse(GetProperty(id, name)).Where(i => i["@type"].ToString() != "Organization")
 						select new JObject(
-									new JProperty("name", prop["name"].ToString()),
-									new JProperty("id", FormatIMDbId(prop["url"].ToString()).Split("/")[1])));
+								new JProperty("name", prop["name"].ToString()),
+								new JProperty("id", FormatIMDbId(prop["url"].ToString()).Split("/")[1])));
 			}
 			//string property
 			else if (name == "description" || name == "timeRequired" || name == "contentRating" || name == "image")
 			{
 				result = new JArray(
-							new JObject(
-								new JProperty("str", GetProperty(id, name))));
+						new JObject(
+							new JProperty("str", GetProperty(id, name))));
 			}
 			//date property
 			else if (name == "datePublished" || name == "birthDate" || name == "deathDate")
 			{
 				result = new JArray(
-							new JObject(
-								new JProperty("date", GetProperty(id, name) + "T00:00:00+00:00")));
+						new JObject(
+							new JProperty("date", GetProperty(id, name) + "T00:00:00+00:00")));
 			}
 			//string property seperated by comma
 			else if (name == "keywords")
@@ -332,7 +332,7 @@ namespace IMDbReconcile.Controllers
 				result = new JArray(
 						from prop in GetProperty(id, name).Split(",")
 						select new JObject(
-									new JProperty("str", prop)));
+								new JProperty("str", prop)));
 			}
 			//string array property
 			else if (name == "genre" || name == "jobTitle")
@@ -340,7 +340,7 @@ namespace IMDbReconcile.Controllers
 				result = new JArray(
 						from prop in JArray.Parse(GetProperty(id, name))
 						select new JObject(
-									new JProperty("str", prop.ToString())));
+								new JProperty("str", prop.ToString())));
 			}
 			return result;
 		}
