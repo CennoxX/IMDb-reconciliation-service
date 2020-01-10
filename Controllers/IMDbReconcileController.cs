@@ -137,6 +137,11 @@ namespace IMDbReconcile.Controllers
 				return NotFound();
 			}
 		}
+		
+		/// <summary>
+		/// The Suggest API, that provides a static list of possible properties.
+		/// </summary>
+		/// <returns>Returns the suggested properties or a callback of them.</returns>
 		public ActionResult SuggestProperty()
 		{
 			var queryString = GetQueryString();
