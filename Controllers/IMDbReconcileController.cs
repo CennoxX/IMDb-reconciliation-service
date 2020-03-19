@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
@@ -15,9 +16,40 @@ namespace IMDbReconcile.Controllers
 	public class IMDbReconcileController : ControllerBase
 	{
 		/// <summary>
-		/// The temporary stored JSON-LD.
+		/// Temporary stored JSON-LD.
 		/// </summary>
-		private JObject ldJson;
+		public string JsonCache
+		{
+			get
+			{
+				string ldString = "";
+				try
+				{
+					using (StreamReader sr = new StreamReader("cache.json"))
+					{
+						ldString += sr.ReadToEnd();
+					}
+				}
+				catch (Exception)
+				{
+				}
+				return ldString;
+			}
+			set
+			{
+				try
+				{
+					using (StreamWriter outputFile = new StreamWriter("cache.json"))
+					{
+						outputFile.WriteLine(value);
+					}
+				}
+				catch
+				{
+				}
+			}
+
+		}
 
 		/// <summary>
 		/// The standard API, including the Reconciliation Service API, the Data Extension API and the Service Metadata.
@@ -113,9 +145,9 @@ namespace IMDbReconcile.Controllers
 			{
 				var id = queryString.FirstOrDefault(i => i.Key == "id").Value.ToString();
 				var ld = LoadJSON(id);
-				var title = ld["name"].ToString();
-				var picture = ld["image"].ToString();
-				var description = ld["description"].ToString();
+				var title = ld["name"]?.ToString();
+				var picture = ld["image"]?.ToString();
+				var description = ld["description"]?.ToString();
 				var preview =
 				@"<html><head><meta charset='utf-8' /></head><body style='margin: 0px; font-family: Arial; sans-serif'><div style='height: 100px; width: 400px; overflow: hidden; font-size: 0.7em'><div style='width: 100px; text-align: center; overflow: hidden; margin-right: 9px; float: left'><img src='"
 				+ picture
@@ -137,7 +169,7 @@ namespace IMDbReconcile.Controllers
 				return NotFound();
 			}
 		}
-		
+
 		/// <summary>
 		/// The Suggest API, that provides a static list of possible properties.
 		/// </summary>
@@ -245,12 +277,21 @@ namespace IMDbReconcile.Controllers
 		/// <returns>Returns a JSON-object with the JSON-LD.</returns>
 		private JObject LoadJSON(string id)
 		{
-			if (ldJson == null || ldJson["url"].ToString().Trim('/') != FormatIMDbId(id))
+			JArray ldJsonArray = new JArray();
+			JObject ldJson = new JObject();
+			if (!String.IsNullOrEmpty(JsonCache))
+			{
+				ldJsonArray = JArray.Parse(JsonCache);
+				ldJson = (JObject)ldJsonArray.ToList().Find(j => j["url"].ToString().Trim('/') == FormatIMDbId(id));
+			}
+			if (ldJson == null || ldJson.Count == 0)
 			{
 				var web = new HtmlWeb();
 				var doc = web.Load("https://www.imdb.com/" + FormatIMDbId(id));
 				var match = doc.DocumentNode.SelectSingleNode(@"//script[@type=""application/ld+json""]");
 				ldJson = JObject.Parse(match.InnerText);
+				ldJsonArray.Add(ldJson);
+				JsonCache = ldJsonArray.ToString();
 			}
 			return ldJson;
 		}
@@ -314,22 +355,22 @@ namespace IMDbReconcile.Controllers
 				result = new JArray(
 						from prop in JArray.Parse(GetProperty(id, name)).Where(i => i["@type"].ToString() != "Organization")
 						select new JObject(
-								new JProperty("name", prop["name"].ToString()),
-								new JProperty("id", FormatIMDbId(prop["url"].ToString()).Split("/")[1])));
+									new JProperty("name", prop["name"].ToString()),
+									new JProperty("id", FormatIMDbId(prop["url"].ToString()).Split("/")[1])));
 			}
 			//string property
 			else if (name == "description" || name == "timeRequired" || name == "contentRating" || name == "image")
 			{
 				result = new JArray(
-						new JObject(
-							new JProperty("str", GetProperty(id, name))));
+							new JObject(
+								new JProperty("str", GetProperty(id, name))));
 			}
 			//date property
 			else if (name == "datePublished" || name == "birthDate" || name == "deathDate")
 			{
 				result = new JArray(
-						new JObject(
-							new JProperty("date", GetProperty(id, name) + "T00:00:00+00:00")));
+							new JObject(
+								new JProperty("date", GetProperty(id, name) + "T00:00:00+00:00")));
 			}
 			//string property seperated by comma
 			else if (name == "keywords")
@@ -337,7 +378,7 @@ namespace IMDbReconcile.Controllers
 				result = new JArray(
 						from prop in GetProperty(id, name).Split(",")
 						select new JObject(
-								new JProperty("str", prop)));
+									new JProperty("str", prop)));
 			}
 			//string array property
 			else if (name == "genre" || name == "jobTitle")
@@ -345,7 +386,7 @@ namespace IMDbReconcile.Controllers
 				result = new JArray(
 						from prop in JArray.Parse(GetProperty(id, name))
 						select new JObject(
-								new JProperty("str", prop.ToString())));
+									new JProperty("str", prop.ToString())));
 			}
 			return result;
 		}
