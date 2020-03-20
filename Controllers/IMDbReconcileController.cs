@@ -131,7 +131,7 @@ namespace IMDbReconcile.Controllers
 			}
 			else
 			{
-				result = JObject.Parse(@"{properties: []}");
+				result = JObject.Parse(@"{properties: [{id: 'image',name: 'Image'},{id: 'description',name: 'Description'},{id: 'jobTitle',name: 'Jobtitle'},{id: 'birthDate',name: 'Birthdate'},{id: 'deathDate',name: 'Deathdate'},{id: 'actor',name: 'Actor'},{id: 'director',name: 'Director'},{id: 'creator',name: 'Creator'},{id: 'datePublished',name: 'Date published'},{id: 'timeRequired',name: 'Duration'},{id: 'keywords',name: 'Keywords'},{id: 'genre',name: 'Genre'},{id: 'contentRating',name: 'Content rating'}],type: 'Unknown'}");
 			}
 			return CallbackReturn(queryString, result);
 		}
