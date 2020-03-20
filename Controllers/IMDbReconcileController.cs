@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json.Linq;
 
 namespace IMDbReconcile.Controllers
@@ -145,23 +146,11 @@ namespace IMDbReconcile.Controllers
 			{
 				var id = queryString.FirstOrDefault(i => i.Key == "id").Value.ToString();
 				var ld = LoadJSON(id);
-				var title = ld["name"]?.ToString();
-				var picture = ld["image"]?.ToString();
-				var description = ld["description"]?.ToString();
+				var title = ld["name"]?.ToString() ?? "";
+				var picture = ld["image"]?.ToString() ?? "";
+				var description = ld["description"]?.ToString() ?? "";
 				var preview =
-				@"<html><head><meta charset='utf-8' /></head><body style='margin: 0px; font-family: Arial; sans-serif'><div style='height: 100px; width: 400px; overflow: hidden; font-size: 0.7em'><div style='width: 100px; text-align: center; overflow: hidden; margin-right: 9px; float: left'><img src='"
-				+ picture
-				+ @"' alt='"
-				+ title
-				+ @"' style='height: 100px' /></div><div style='margin-left: 3px;'><a href='https://www.imdb.com/"
-				+ FormatIMDbId(id)
-				+ @"/' target='_blank' style='text-decoration: none;'>"
-				+ title
-				+ @"</a> <span style='color: #505050;'>("
-				+ id
-				+ @")</span><p>"
-				+ Regex.Unescape(description)
-				+ @"</p></div></div></body></html>";
+				$"<html><head><meta charset='utf-8' /></head><body style='margin: 0px;font: 0.7em sans-serif;'><div style='width: 100px; text-align: center; overflow: hidden; margin-right: 9px; float: left;'><img src='{picture}' alt='{title}' style='height: 100px' /></div><a href='https://www.imdb.com/{FormatIMDbId(id)}/' target='_blank'>{title}</a> <span style='color: #505050;'>({id})</span><p>{Regex.Unescape(description)}</p></body></html>";
 				return Content(preview, "text/html");
 			}
 			catch (Exception)
@@ -187,7 +176,7 @@ namespace IMDbReconcile.Controllers
 		/// <param name="queryString">String of the query to determine if a callback is needed.</param>
 		/// <param name="result">The JSON-object to return as ContentResult.</param>
 		/// <returns>Returns the JSON-object with or withour callback.</returns>
-		private ContentResult CallbackReturn(IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> queryString, JObject result)
+		private ContentResult CallbackReturn(IEnumerable<KeyValuePair<string, StringValues>> queryString, JObject result)
 		{
 			if (queryString.Any(i => i.Key == "callback"))
 				return Content(queryString.First(i => i.Key == "callback").Value + '(' + result + ')', "text/javascript");
@@ -260,7 +249,7 @@ namespace IMDbReconcile.Controllers
 		/// Returns the data of the request based on the request-method.
 		/// </summary>
 		/// <returns>Returns the data of the request.</returns>
-		private IEnumerable<KeyValuePair<string, Microsoft.Extensions.Primitives.StringValues>> GetQueryString()
+		private IEnumerable<KeyValuePair<string, StringValues>> GetQueryString()
 		{
 			if (Request.Method == "GET")
 				return Request.Query;
@@ -352,8 +341,11 @@ namespace IMDbReconcile.Controllers
 			//IMDb Person property with @type Person, url, name or @type Organization, url
 			if (name == "actor" || name == "creator" || name == "director" || name == "writer")
 			{
+				var property = GetProperty(id, name);
+				if (!property.StartsWith("["))
+					property = "[" + property + "]";
 				result = new JArray(
-						from prop in JArray.Parse(GetProperty(id, name)).Where(i => i["@type"].ToString() != "Organization")
+						from prop in JArray.Parse(property).Where(i => i["@type"].ToString() != "Organization")
 						select new JObject(
 									new JProperty("name", prop["name"].ToString()),
 									new JProperty("id", FormatIMDbId(prop["url"].ToString()).Split("/")[1])));
