@@ -17,9 +17,14 @@ namespace IMDbReconcile.Controllers
 	public class IMDbReconcileController : ControllerBase
 	{
 		/// <summary>
-		/// Temporary stored JSON-LD.
+		/// All possible properties of IMDb.
 		/// </summary>
-		public string JsonCache
+		private readonly JArray allProperties = JArray.Parse(@"[{id: 'actor', name: 'Actor'},{id: 'birthDate', name: 'Birthdate'},{id: 'contentRating', name: 'Content rating'},{id: 'creator', name: 'Creator'},{id: 'datePublished', name: 'Date published'},{id: 'deathDate', name: 'Deathdate'},{id: 'description', name: 'Description'},{id: 'director', name: 'Director'},{id: 'genre', name: 'Genre'},{id: 'image', name: 'Image'},{id: 'jobTitle', name: 'Jobtitle'},{id: 'keywords', name: 'Keywords'},{id: 'timeRequired', name: 'Duration'}]");
+
+		/// <summary>
+		/// String of all temporary in a file stored JSON-LD.
+		/// </summary>
+		private string JsonCache
 		{
 			get
 			{
@@ -131,7 +136,10 @@ namespace IMDbReconcile.Controllers
 			}
 			else
 			{
-				result = JObject.Parse(@"{properties: [{id: 'image',name: 'Image'},{id: 'description',name: 'Description'},{id: 'jobTitle',name: 'Jobtitle'},{id: 'birthDate',name: 'Birthdate'},{id: 'deathDate',name: 'Deathdate'},{id: 'actor',name: 'Actor'},{id: 'director',name: 'Director'},{id: 'creator',name: 'Creator'},{id: 'datePublished',name: 'Date published'},{id: 'timeRequired',name: 'Duration'},{id: 'keywords',name: 'Keywords'},{id: 'genre',name: 'Genre'},{id: 'contentRating',name: 'Content rating'}],type: 'Unknown'}");
+				result = new JObject(
+					new JProperty("properties", allProperties),
+					new JProperty("type", type
+					));
 			}
 			return CallbackReturn(queryString, result);
 		}
@@ -160,13 +168,17 @@ namespace IMDbReconcile.Controllers
 		}
 
 		/// <summary>
-		/// The Suggest API, that provides a static list of possible properties.
+		/// The Suggest API, that provides a list of possible properties filtert by the prefix.
 		/// </summary>
 		/// <returns>Returns the suggested properties or a callback of them.</returns>
 		public ActionResult SuggestProperty()
 		{
 			var queryString = GetQueryString();
-			var result = JObject.Parse(@"{result:[{id: 'actor', name: 'Actor'},{id: 'birthDate', name: 'Birthdate'},{id: 'contentRating', name: 'Content rating'},{id: 'creator', name: 'Creator'},{id: 'datePublished', name: 'Date published'},{id: 'deathDate', name: 'Deathdate'},{id: 'description', name: 'Description'},{id: 'director', name: 'Director'},{id: 'genre', name: 'Genre'},{id: 'image', name: 'Image'},{id: 'jobTitle', name: 'Jobtitle'},{id: 'keywords', name: 'Keywords'},{id: 'timeRequired', name: 'Time required'}]}");
+			var prefix = queryString.FirstOrDefault(i => i.Key == "prefix").Value.ToString();
+			var result = new JObject(
+					new JProperty("result",
+					(String.IsNullOrEmpty(prefix)? allProperties : new JArray(allProperties.Where(i => i["name"].ToString().StartsWith(prefix))))
+				));
 			return CallbackReturn(queryString, result);
 		}
 
