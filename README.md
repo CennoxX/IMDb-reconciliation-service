@@ -4,7 +4,7 @@ OpenRefine reconciliation service using the JSON-LD data of IMDb
 ![](https://github.com/cennoxx/netcore-reconciliation-service/workflows/.NET%20Core/badge.svg)
 
 
-.NET Core implementation of an OpenRefine reconciliation service that takes IMDb-IDs and blindly verifies them to themself. The Reconciliation Service API provides the Service Metadata, returns the title or name and the url, so that reconciled IMDb-IDs are clickable links. Further it is possible to extend the data by using the JSON-LD data of IMDb with the Data Extension API. The Preview API, Property Proposal API and Suggest API (for properties) are also implemented.
+.NET Core implementation of an OpenRefine reconciliation service that takes IMDb-IDs and reconciles them to their IMDb entry. The Reconciliation Service API provides the Service Metadata, returns the title or name and the url, so that reconciled IMDb-IDs are clickable links. Further it is possible to extend the data by using the JSON-LD data of IMDb with the Data Extension API. The Preview API, Property Proposal API and Suggest API are also implemented.
 
 The service is easy adaptable for other websites using JSON-LD.
 
