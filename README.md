@@ -10,13 +10,13 @@ The service is easy adaptable for other websites using JSON-LD.
 
 Requirements
 ------------
-Requires [.NET Core 2.2 SDK](https://www.microsoft.com/net/download/all)
+Requires [.NET Core 3.1 SDK](https://www.microsoft.com/net/download/all)
 
 Starting the server
 -------------------
 To start the service:
 ```
-dotnet run IMDbReconcile
+dotnet run
 ```
 
 To use in OpenRefine:
