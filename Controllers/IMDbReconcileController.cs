@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json.Linq;
 
-namespace IMDbReconcile.Controllers
+namespace WebReconcile.Controllers
 {
 	[ApiController]
 	[Route("[controller]/[action]")]
@@ -19,7 +19,7 @@ namespace IMDbReconcile.Controllers
 		/// <summary>
 		/// All possible properties of IMDb.
 		/// </summary>
-		private readonly JArray allProperties = JArray.Parse(@"[{id: 'actor', name: 'Actor'},{id: 'birthDate', name: 'Birthdate'},{id: 'contentRating', name: 'Content rating'},{id: 'creator', name: 'Creator'},{id: 'datePublished', name: 'Date published'},{id: 'deathDate', name: 'Deathdate'},{id: 'description', name: 'Description'},{id: 'director', name: 'Director'},{id: 'genre', name: 'Genre'},{id: 'image', name: 'Image'},{id: 'jobTitle', name: 'Jobtitle'},{id: 'keywords', name: 'Keywords'},{id: 'timeRequired', name: 'Duration'}]");
+		private readonly JArray allProperties = JArray.Parse("[{id: 'actor', name: 'Actor'},{id: 'birthDate', name: 'Birthdate'},{id: 'contentRating', name: 'Content rating'},{id: 'creator', name: 'Creator'},{id: 'datePublished', name: 'Date published'},{id: 'deathDate', name: 'Deathdate'},{id: 'description', name: 'Description'},{id: 'director', name: 'Director'},{id: 'genre', name: 'Genre'},{id: 'image', name: 'Image'},{id: 'jobTitle', name: 'Jobtitle'},{id: 'keywords', name: 'Keywords'},{id: 'timeRequired', name: 'Duration'}]");
 
 		/// <summary>
 		/// String of all temporary in a file stored JSON-LD.
@@ -31,30 +31,26 @@ namespace IMDbReconcile.Controllers
 				string ldString = "";
 				try
 				{
-					using (StreamReader sr = new StreamReader("cache.json"))
-					{
-						ldString += sr.ReadToEnd();
-					}
-				}
-				catch (Exception)
+                    using StreamReader sr = new StreamReader("cache.json");
+                    ldString += sr.ReadToEnd();
+                }
+				catch (Exception ex)
 				{
-				}
+                    Console.WriteLine(ex.Message);
+                }
 				return ldString;
 			}
 			set
 			{
 				try
 				{
-					using (StreamWriter outputFile = new StreamWriter("cache.json"))
-					{
-						outputFile.WriteLine(value);
-					}
-				}
+                    using StreamWriter outputFile = new StreamWriter("cache.json");
+                    outputFile.WriteLine(value);
+                }
 				catch
 				{
 				}
 			}
-
 		}
 
 		/// <summary>
@@ -128,11 +124,11 @@ namespace IMDbReconcile.Controllers
 			JObject result;
 			if (type == "Person")
 			{
-				result = JObject.Parse(@"{properties: [{id: 'image',name: 'Image'},{id: 'jobTitle',name: 'Jobtitle'},{id: 'description',name: 'Description'},{id: 'birthDate',name: 'Birthdate'},{id: 'deathDate',name: 'Deathdate'}],type: 'Person'}");
+				result = JObject.Parse("{properties: [{id: 'image',name: 'Image'},{id: 'jobTitle',name: 'Jobtitle'},{id: 'description',name: 'Description'},{id: 'birthDate',name: 'Birthdate'},{id: 'deathDate',name: 'Deathdate'}],type: 'Person'}");
 			}
 			else if (type == "TVEpisode" || type == "Movie" || type == "TVSeries" || type == "CreativeWork")
 			{
-				result = JObject.Parse(@"{properties: [{id: 'actor',name: 'Actor'},{id: 'director',name: 'Director'},{id: 'creator',name: 'Creator'},{id: 'description',name: 'Description'},{id: 'datePublished',name: 'Date published'},{id: 'timeRequired',name: 'Duration'},{id: 'keywords',name: 'Keywords'},{id: 'genre',name: 'Genre'},{id: 'contentRating',name: 'Content rating'},{id: 'image',name: 'Image'}],type: '" + type + @"'}");
+				result = JObject.Parse("{properties: [{id: 'actor',name: 'Actor'},{id: 'director',name: 'Director'},{id: 'creator',name: 'Creator'},{id: 'description',name: 'Description'},{id: 'datePublished',name: 'Date published'},{id: 'timeRequired',name: 'Duration'},{id: 'keywords',name: 'Keywords'},{id: 'genre',name: 'Genre'},{id: 'contentRating',name: 'Content rating'},{id: 'image',name: 'Image'}],type: '" + type + "'}");
 			}
 			else
 			{
@@ -177,7 +173,7 @@ namespace IMDbReconcile.Controllers
 			var prefix = queryString.FirstOrDefault(i => i.Key == "prefix").Value.ToString();
 			var result = new JObject(
 					new JProperty("result",
-					(String.IsNullOrEmpty(prefix)? allProperties : new JArray(allProperties.Where(i => i["name"].ToString().StartsWith(prefix))))
+					String.IsNullOrEmpty(prefix)? allProperties : new JArray(allProperties.Where(i => i["name"].ToString().StartsWith(prefix)))
 				));
 			return CallbackReturn(queryString, result);
 		}
@@ -205,7 +201,7 @@ namespace IMDbReconcile.Controllers
 		/// <returns>Returns an adapted configuration as JSON-string.</returns>
 		private JObject GetConfiguration(HttpRequest request)
 		{
-			var service_url = request.Scheme + @"://" + request.Host + @"/" + request.Path.Value.Split("/")[1];
+			var service_url = request.Scheme + "://" + request.Host + "/" + request.Path.Value.Split("/")[1];
 			return JObject.Parse(
 			@"{
 				name: 'IMDb (en)',
@@ -349,14 +345,13 @@ namespace IMDbReconcile.Controllers
 		/// <returns>Returns an JSON-array with the content of the properties.</returns>
 		private JArray GetContentJArray(string id, string name)
 		{
-			JArray result = null;
 			//IMDb Person property with @type Person, url, name or @type Organization, url
 			if (name == "actor" || name == "creator" || name == "director" || name == "writer")
 			{
 				var property = GetProperty(id, name);
 				if (!property.StartsWith("["))
 					property = "[" + property + "]";
-				result = new JArray(
+				return new JArray(
 						from prop in JArray.Parse(property).Where(i => i["@type"].ToString() != "Organization")
 						select new JObject(
 									new JProperty("name", prop["name"].ToString()),
@@ -365,21 +360,21 @@ namespace IMDbReconcile.Controllers
 			//string property
 			else if (name == "description" || name == "timeRequired" || name == "contentRating" || name == "image")
 			{
-				result = new JArray(
+				return new JArray(
 							new JObject(
 								new JProperty("str", GetProperty(id, name))));
 			}
 			//date property
 			else if (name == "datePublished" || name == "birthDate" || name == "deathDate")
 			{
-				result = new JArray(
+				return new JArray(
 							new JObject(
 								new JProperty("date", GetProperty(id, name) + "T00:00:00+00:00")));
 			}
 			//string property seperated by comma
 			else if (name == "keywords")
 			{
-				result = new JArray(
+				return new JArray(
 						from prop in GetProperty(id, name).Split(",")
 						select new JObject(
 									new JProperty("str", prop)));
@@ -387,12 +382,12 @@ namespace IMDbReconcile.Controllers
 			//string array property
 			else if (name == "genre" || name == "jobTitle")
 			{
-				result = new JArray(
+				return new JArray(
 						from prop in JArray.Parse(GetProperty(id, name))
 						select new JObject(
 									new JProperty("str", prop.ToString())));
 			}
-			return result;
+			return null;
 		}
 		#endregion utils
 
