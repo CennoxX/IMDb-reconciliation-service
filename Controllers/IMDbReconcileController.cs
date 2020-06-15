@@ -382,8 +382,11 @@ namespace WebReconcile.Controllers
 			//string array property
 			else if (name == "genre" || name == "jobTitle")
 			{
+				var property = GetProperty(id, name);
+				if (!property.StartsWith("["))
+					property = "[\"" + property + "\"]";
 				return new JArray(
-						from prop in JArray.Parse(GetProperty(id, name))
+						from prop in JArray.Parse(property)
 						select new JObject(
 									new JProperty("str", prop.ToString())));
 			}
