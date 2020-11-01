@@ -32,7 +32,7 @@ To extend data:
 * Choose one or multiple of "Suggested Properties"
 * Click on "OK"
 
-![extend data](img/extend_data.png)
+![extend data](img/extend_data.gif)
 
 -----------
 For more info, see https://github.com/OpenRefine/OpenRefine/wiki/Reconciliation-Service-API.
