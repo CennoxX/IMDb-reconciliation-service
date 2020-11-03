@@ -15,7 +15,7 @@ Requires [OpenRefine](https://github.com/OpenRefine/OpenRefine)
 
 How to use
 ----------
-After starting OpenRefine, the service has to be started by running the executable (see [Releases](/releases)).
+After starting OpenRefine, the service has to be started by running the executable (see [Releases](https://github.com/CennoxX/IMDb-reconciliation-service/releases)).
 
 If you want to run the service from source code, [.NET Core 3.1 SDK](https://www.microsoft.com/net/download/all) is required and the service can be run with `dotnet run`.
 
